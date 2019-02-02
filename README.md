@@ -5,4 +5,4 @@
 3.  each result should be clickable and when clicked should display the user's repositories
 4.  when viewing the user repositories, each should display the number of open pull requests
 
-(Just for fun, I added a pagination component!)
+(Just for fun, I added a fancy pagination component!)
