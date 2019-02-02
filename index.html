@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>GitHub User Browser</title>
+    <link rel="stylesheet" type="text/css" href="styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.4.2/react.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.4.2/react-dom.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.21.1/babel.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  </head>
+
+  <body>
+    <!-- APPLICATION START  -->
+    <div id="App"></div>
+    <!-- APPLICATION END  -->
+    <!-- START CODE -->
+    <script type="text/babel">
+      // if you hit the github api rate limit append a token to your api calls
+      // const githubToken = '';
+      class App extends React.Component {
+        constructor(props) {
+          super(props);
+          this.state = {
+            users: [],
+            searchTerm: '',
+            selectedUser: '',
+            selectedUserRepos: [],
+            totalResults: 0,
+            currentPage: 1,
+            usersPerPage: 8
+          };
+        }
+        handleChange = event => {
+          this.setState({ searchTerm: event.target.value });
+        };
+
+        handleSubmit = event => {
+          event.preventDefault();
+          axios
+            .get(
+              `https://api.github.com/search/users?q=${
+                this.state.searchTerm
+              }&page=1&per_page=${this.state.usersPerPage}` //&${githubToken}
+            )
+            .then(resp => {
+              const results = resp.data.items;
+              this.setState({
+                users: results,
+                totalResults: Math.min(resp.data.total_count, 1000),
+                selectedUser: '',
+                selectedUserRepos: [],
+                currentPage: 1
+              });
+            });
+        };
+
+        handleUserClick = user => {
+          this.setState({ selectedUser: user, selectedUserRepos: [] });
+          axios
+            .get(`https://api.github.com/users/${user}/repos`) //?${githubToken}
+            .then(resp => {
+              const repos = resp.data;
+              repos.map(repo => {
+                axios
+                  .get(
+                    `https://api.github.com/repos/${user}/${repo.name}/pulls` //?${githubToken}
+                  )
+                  .then(resp => {
+                    const pulls = resp.data;
+                    this.setState({
+                      selectedUserRepos: [
+                        ...this.state.selectedUserRepos,
+                        { id: repo.id, name: repo.name, pulls: pulls.length }
+                      ]
+                    });
+                  });
+              });
+            });
+        };
+
+        handlePageClick = page => {
+          let pageNumber = Number(page);
+          axios
+            .get(
+              `https://api.github.com/search/users?q=${
+                this.state.searchTerm
+              }&page=${pageNumber}&per_page=${this.state.usersPerPage}` //&${githubToken}
+            )
+            .then(resp => {
+              const results = resp.data.items;
+              this.setState({
+                users: results,
+                selectedUser: '',
+                selectedUserRepos: [],
+                currentPage: pageNumber
+              });
+            });
+        };
+
+        render() {
+          return (
+            <div>
+              <h1>GitHub User Search</h1>
+              <Form
+                searchTerm={this.state.searchTerm}
+                handleSubmit={this.handleSubmit}
+                handleChange={this.handleChange}
+              />
+              <hr />
+              {this.state.totalResults > 0 ? (
+                <p className='numResults'>{this.state.totalResults} Results</p>
+              ) : null}
+              <div className='results'>
+                <UserList
+                  users={this.state.users}
+                  selectedUser={this.state.selectedUser}
+                  handleUserClick={this.handleUserClick}
+                />
+                <ReposList userRepos={this.state.selectedUserRepos} />
+              </div>
+              <Pagination
+                totalResults={this.state.totalResults}
+                currentPage={this.state.currentPage}
+                usersPerPage={this.state.usersPerPage}
+                handlePageClick={this.handlePageClick}
+              />
+            </div>
+          );
+        }
+      }
+
+      const Form = props => {
+        return (
+          <form onSubmit={e => props.handleSubmit(e)}>
+            <input
+              type='text'
+              onChange={props.handleChange}
+              value={props.searchTerm}
+              placeholder='GitHub username'
+              required
+            />
+            <button type='submit'>Search</button>
+          </form>
+        );
+      };
+
+      const User = props => {
+        return (
+          <div
+            className={props.selectedUser === props.login ? 'selected' : 'user'}
+            onClick={() => props.handleUserClick(props.login)}
+          >
+            <img alt='avatar' src={props.avatar_url} />
+            <h2>{props.login}</h2>
+          </div>
+        );
+      };
+
+      const UserList = props => {
+        return (
+          <div>
+            {props.users.map(user => (
+              <User
+                {...user}
+                selectedUser={props.selectedUser}
+                key={user.id}
+                handleUserClick={props.handleUserClick}
+              />
+            ))}
+          </div>
+        );
+      };
+
+      const ReposList = props => (
+        <div>
+          <ul>
+            {props.userRepos.map(repo => {
+              return (
+                <li key={repo.id}>
+                  {repo.name} <br />
+                  Open Pull Requests: {repo.pulls}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      );
+
+      //helpers for pagination component
+      const LEFT_PAGE = 'LEFT';
+      const RIGHT_PAGE = 'RIGHT';
+
+      const range = (from, to, step = 1) => {
+        let i = from;
+        const range = [];
+
+        while (i <= to) {
+          range.push(i);
+          i += step;
+        }
+
+        return range;
+      };
+
+      class Pagination extends React.Component {
+        constructor(props) {
+          super(props);
+          // the number of additional page numbers to show on each side of the current page
+          this.pageNeighbors = 2;
+        }
+
+        gotoPage = page => {
+          this.props.handlePageClick(page);
+        };
+
+        handleClick = (page, event) => {
+          event.preventDefault();
+          this.gotoPage(page);
+        };
+
+        //jump back 5 pages
+        handleMoveLeft = event => {
+          event.preventDefault();
+          this.gotoPage(this.props.currentPage - this.pageNeighbors * 2 - 1);
+        };
+
+        //jump forward 5 pages
+        handleMoveRight = event => {
+          event.preventDefault();
+          this.gotoPage(this.props.currentPage + this.pageNeighbors * 2 + 1);
+        };
+        /*
+         * This method handles the core logic for generating the page numbers to be shown on the
+         * pagination control. I want the first page and last page to always be visible.
+         */
+        fetchPageNumbers = () => {
+          const totalPages = Math.ceil(
+            this.props.totalResults / this.props.usersPerPage
+          );
+          const currentPage = this.props.currentPage;
+          const pageNeighbors = this.pageNeighbors;
+
+          /*
+           * totalNumbers: the total page numbers to show on the control
+           * totalBlocks: totalNumbers + 2 to cover for the left(<) and right(>) controls
+           */
+          const totalNumbers = this.pageNeighbors * 2 + 3;
+          const totalBlocks = totalNumbers + 2;
+
+          if (totalPages > totalBlocks) {
+            let pages = [];
+
+            //use to determine when to show left(<) control
+            const leftBound = currentPage - pageNeighbors;
+
+            //use to determine when to show right(>) control
+            const rightBound = currentPage + pageNeighbors;
+
+            const beforeLastPage = totalPages - 1;
+
+            //first page number to show (after first page and right(>) control)
+            const startPage = leftBound > 2 ? leftBound : 2;
+
+            //last page number to show (before last page and left(<) control)
+            const endPage =
+              rightBound < beforeLastPage ? rightBound : beforeLastPage;
+
+            //initial page range does not include first, last, or left(<)/right(>) controls
+            pages = range(startPage, endPage);
+
+            const pagesCount = pages.length;
+            /*
+             * singleSpillOffset: total number of hidden pages either to the left or to the right
+             * leftSpill: has hidden pages to the left
+             * rightSpill: has hidden pages to the right
+             */
+            const singleSpillOffset = totalNumbers - pagesCount - 1;
+
+            // are there hidden numbers to the left or the right?
+            const leftSpill = startPage > 2;
+            const rightSpill = endPage < beforeLastPage;
+
+            const leftSpillPage = LEFT_PAGE;
+            const rightSpillPage = RIGHT_PAGE;
+
+            if (leftSpill && !rightSpill) {
+              // if no hidden numbers to the right
+              const extraPages = range(
+                startPage - singleSpillOffset,
+                startPage - 1
+              );
+              pages = [leftSpillPage, ...extraPages, ...pages];
+            } else if (!leftSpill && rightSpill) {
+              // if no hidden numbers to the left
+              const extraPages = range(
+                endPage + 1,
+                endPage + singleSpillOffset
+              );
+              pages = [...pages, ...extraPages, rightSpillPage];
+            } else if (leftSpill && rightSpill) {
+              // if hidden numbers on both sides
+              pages = [leftSpillPage, ...pages, rightSpillPage];
+            }
+
+            return [1, ...pages, totalPages];
+          }
+
+          return range(1, totalPages);
+        };
+
+        render() {
+          if (!this.props.totalResults) return null;
+
+          if (this.totalPages === 1) return null;
+
+          const pages = this.fetchPageNumbers();
+
+          return (
+            <nav aria-label='Pagination'>
+              <ul className='pagination'>
+                {pages.map((page, index) => {
+                  if (page === LEFT_PAGE)
+                    return (
+                      <li key={index} className='page-item'>
+                        <a
+                          className='page-link'
+                          href='#'
+                          aria-label='Previous'
+                          onClick={this.handleMoveLeft}
+                        >
+                          <span aria-hidden='true'>&laquo;</span>
+                          <span className='sr-only'>Previous</span>
+                        </a>
+                      </li>
+                    );
+
+                  if (page === RIGHT_PAGE)
+                    return (
+                      <li key={index} className='page-item'>
+                        <a
+                          className='page-link'
+                          href='#'
+                          aria-label='Next'
+                          onClick={this.handleMoveRight}
+                        >
+                          <span aria-hidden='true'>&raquo;</span>
+                          <span className='sr-only'>Next</span>
+                        </a>
+                      </li>
+                    );
+
+                  return (
+                    <li
+                      key={index}
+                      className={`page-item${
+                        this.props.currentPage === page ? ' active' : ''
+                      }`}
+                    >
+                      <a
+                        className='page-link'
+                        href='#'
+                        onClick={e => this.handleClick(page, e)}
+                      >
+                        {page}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+          );
+        }
+      }
+
+      ReactDOM.render(<App />, document.getElementById('App'));
+    </script>
+    <!-- END CODE -->
+  </body>
+</html>

@@ -1,0 +1,91 @@
+body {
+  font-family: sans-serif;
+}
+
+h1 {
+  text-align: center;
+}
+
+form {
+  text-align: center;
+  margin: 1em 0;
+}
+
+input {
+  margin-right: 25px;
+}
+
+p.numResults {
+  text-align: center;
+}
+
+.results {
+  display: flex;
+  justify-content: space-evenly;
+}
+
+.results > div {
+  min-width: 30%;
+}
+
+.user,
+.selected {
+  margin: 1em 0;
+  padding-right: 1em;
+  display: flex;
+}
+
+.user:hover {
+  background-color: lightblue;
+}
+
+.selected {
+  background-color: yellow;
+}
+
+img {
+  width: 70px;
+  height: 70px;
+  margin-right: 1em;
+}
+
+ul {
+  list-style-type: none;
+  padding-inline-start: 0;
+}
+
+.results ul li {
+  margin: 1em 0;
+}
+
+nav {
+  text-align: center;
+  margin: 1em 0;
+}
+
+ul.pagination {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+ul.pagination li {
+  display: inline;
+  margin: 0 1em;
+}
+
+ul.pagination li.page-item.active a.page-link {
+  color: blue;
+  background-color: yellow;
+}
+
+ul.pagination a.page-link {
+  padding: 1rem;
+  text-align: center;
+  color: blue;
+  font-size: 1rem;
+  text-decoration: none;
+}
+
+ul.pagination a.page-link:hover {
+  background-color: lightblue;
+}
