@@ -33,6 +33,7 @@ p.numResults {
   margin: 1em 0;
   padding-right: 1em;
   display: flex;
+  cursor: pointer;
 }
 
 .user:hover {
